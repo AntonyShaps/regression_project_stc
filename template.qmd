@@ -1,0 +1,193 @@
+---
+title: "group10"
+author: "group10"
+embed-resources: true
+number-sections: true
+df-print: kable
+format:
+  pdf:
+    toc: true
+editor: visual
+---
+
+# Introduction
+
+The primary objective of this analysis is to investigate the relationship between net income from interest, dividends, and profit from capital investments (`py090n`) and the predictors `gender`, `citizenship`, `hsize` (household size), and `age` in the region of West Austria. Descriptive statistics will be used to understand the distribution and relationships among the variables in this subset of the EUSILC-P dataset.
+
+Methods of analysis include univariate visualizations, bivariate comparisons, and the exploration of potential interactions among predictors to guide subsequent regression modeling.
+
+# Data Collection
+
+The dataset originates from the EUSILC-P survey, which collects comprehensive social and economic data. 
+
+- **Survey Type**: Longitudinal survey
+- **Data Characteristics**: 
+  - Variables: `py090n`, `gender`, `citizenship`, `hsize`, `age`
+  - Scale Levels: Continuous (`py090n`, `age`, `hsize`), Categorical (`gender`, `citizenship`)
+  - Missing Values: Handled using imputation where necessary.
+
+Below is the R code used for loading and preparing the data:
+
+```{r setup}
+library(dplyr)  # For data manipulation
+
+# Load data from the package
+data(eusilcP)
+
+# Filter dataset to include only entries from the West Austria region
+west_austria <- eusilcP %>% 
+  filter(region %in% c("Vorarlberg", "Tyrol", "Salzburg", "Upper Austria"))
+
+# Summarize missing values to identify potential data quality issues
+summary(west_austria)
+west_austria$region <- factor(west_austria$region)
+
+#add factor level called 'no region'
+levels(west_austria$citizenship) <- c(levels(west_austria$citizenship), 'no region')
+
+#convert each NA to 'no region'
+west_austria$citizenship[is.na(west_austria$citizenship)] <- 'no region'
+
+```
+
+# Descriptive Analysis of the Sample
+
+## Univariate Analysis
+
+### Net Income (`py090n`)
+Net income represents the earnings from interest, dividends, and capital investments. Its distribution helps understand the financial background of individuals in West Austria.
+
+```{r py090n_hist}
+# Create a histogram to visualize the distribution of net income
+hist(west_austria$py090n, 
+     breaks = 50, 
+     col = "blue", 
+     # display logarithmic scale
+     main = "Distribution of Net Income", 
+     xlab = "Net Income", 
+     ylab = "Frequency")
+```
+
+### Gender Distribution
+The `gender` variable indicates whether individuals are male or female. The distribution provides insight into the gender representation in the dataset.
+
+```{r gender_bar}
+# Create a bar plot to show the distribution of genders in the dataset
+table_gender <- table(west_austria$gender)
+barplot(table_gender, 
+        main = "Gender Distribution", 
+        xlab = "Gender", 
+        ylab = "Count")
+```
+
+### Age Distribution
+Age represents the individual's age at the time of the survey. Its distribution gives insights into the demographic structure of the dataset.
+
+```{r age_box}
+# Create a boxplot to show the age distribution in the dataset
+boxplot(west_austria$age, 
+        horizontal = TRUE,
+        main = "Age Distribution", 
+        ylab = "Age")
+```
+
+```{r age_summary}
+# Summarize the age variable
+summary(west_austria$age)
+```
+
+```{r age_density}
+# Create a density plot to visualize the distribution of age fill graph
+plot(density(west_austria$age), 
+     main = "Density Plot of Age",
+     xlab = "Age", 
+     ylab = "Density"
+     )
+```
+
+### Citizenship
+The `citizenship` variable differentiates between Austrian citizens and foreigners. This distribution helps understand the dataset's demographic diversity.
+
+```{r citizenship_bar}
+# Create a bar plot to show the distribution of citizenship statuses
+# including the citizenship labels in the axis
+# label NA as unknown
+# sort by count, citizenship is a factor
+table_citizenship <- table(west_austria$citizenship)
+barplot(sort(table_citizenship, decreasing = TRUE), 
+        main = "Citizenship Distribution", 
+        xlab = "Citizenship", 
+        ylab = "Count")
+```
+
+### Household Size (`hsize`)
+Household size represents the number of people in a household. Its distribution is essential to analyze living conditions.
+
+```{r hsize_hist}
+# Create a histogram to visualize the distribution of household sizes
+table_hsize <- table(west_austria$hsize)
+barplot(table_hsize, 
+        main = "Household Size Distribution", 
+        xlab = "Household Size", 
+        ylab = "Count")
+```
+
+## Bivariate Analysis
+
+### Gender and Net Income
+This comparison helps understand the income distribution across genders.
+
+```{r gender_income_box}
+# Create boxplots to compare net income across genders
+boxplot(py090n ~ gender, 
+        data = west_austria, 
+        col = "cyan", 
+        main = "Net Income by Gender", 
+        xlab = "Gender", 
+        ylab = "Net Income")
+```
+
+### Citizenship and Net Income
+This analysis highlights the income differences between Austrian citizens and foreigners.
+
+```{r citizenship_income_box}
+# Create boxplots to compare net income across citizenship statuses
+boxplot(py090n ~ citizenship, 
+        data = west_austria, 
+        col = "magenta", 
+        main = "Net Income by Citizenship", 
+        xlab = "Citizenship", 
+        ylab = "Net Income")
+```
+
+### Age and Net Income
+Exploring this relationship helps identify trends or patterns in income with respect to age.
+
+```{r age_income_scatter}
+# Create a scatter plot to explore the relationship between age and net income
+plot(west_austria$age, west_austria$py090n, 
+     col = "blue", 
+     pch = 16, 
+     main = "Net Income vs Age", 
+     xlab = "Age", 
+     ylab = "Net Income")
+abline(lm(py090n ~ age, data = west_austria), col = "red")
+```
+
+### Household Size and Net Income
+Analyzing this relationship provides insights into how income varies with household size.
+
+```{r hsize_income_scatter}
+# Create a scatter plot to explore the relationship between household size and net income
+plot(west_austria$hsize, west_austria$py090n, 
+     col = "red", 
+     pch = 16, 
+     main = "Net Income vs Household Size", 
+     xlab = "Household Size", 
+     ylab = "Net Income")
+abline(lm(py090n ~ hsize, data = west_austria), col = "blue")
+```
+
+# Summary
+
+The descriptive analysis reveals key patterns in the dataset. The distribution of net income is skewed, and there are noticeable differences in income across genders and citizenships. Age and household size appear to have linear relationships with income. These findings set the stage for deeper inferential analysis in the final report.
