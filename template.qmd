@@ -67,17 +67,12 @@ rows_with_age_below_16 <- west_austria %>% filter(age < 16)
 summary(rows_with_age_below_16)
 ```
 
-Our hypothesis have been confirmed as we can directly see that all persons below 16 are the same persons from previous analysis as it includes the same NA's. So it will make sense to replace py090n NAs with 0 as children are not eligible for unemployment benefits. And citizenship can be inferred from id variable(ask Wurzer)
+Indeed, our hypothesis have been confirmed as we can directly see that all persons below 16 are the same persons from previous analysis as it includes the same NA's. So it will make sense to totally remove this subset of the data as it represents children, who are not eligible for unemployment benefits
 
 ```{r}
-west_austria$gender <- factor(west_austria$gender)
-west_austria$citizenship
+west_austria <- west_austria[complete.cases(west_austria), ]
 
-#add factor level called 'no region'
-levels(west_austria$citizenship) <- c(levels(west_austria$citizenship), 'no region')
-
-#convert each NA to 'no region'
-west_austria$citizenship[is.na(west_austria$citizenship)] <- 'no region'
+summary(west_austria)
 ```
 
 # Descriptive Analysis of the Sample
