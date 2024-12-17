@@ -12,42 +12,72 @@ editor: visual
 
 # Introduction
 
-The primary objective of this analysis is to investigate the relationship between net income from interest, dividends, and profit from capital investments (`py090n`) and the predictors `gender`, `citizenship`, `hsize` (household size), and `age` in the region of West Austria. Descriptive statistics will be used to understand the distribution and relationships among the variables in this subset of the EUSILC-P dataset.
+The primary objective of this analysis is to investigate the relationship between net income from interest, dividends, and profit from capital investments (`py090n`)(unemployment benefits?) and the predictors `gender`, `citizenship`, `hsize` (household size), and `age` in the region of West Austria. Descriptive statistics will be used to understand the distribution and relationships among the variables in this subset of the EUSILC-P dataset.
 
 Methods of analysis include univariate visualizations, bivariate comparisons, and the exploration of potential interactions among predictors to guide subsequent regression modeling.
 
 # Data Collection
 
-The dataset originates from the EUSILC-P survey, which collects comprehensive social and economic data. 
+The dataset originates from the EUSILC-P survey, which collects comprehensive social and economic data.
 
-- **Survey Type**: Longitudinal survey
-- **Data Characteristics**: 
-  - Variables: `py090n`, `gender`, `citizenship`, `hsize`, `age`
-  - Scale Levels: Continuous (`py090n`, `age`, `hsize`), Categorical (`gender`, `citizenship`)
-  - Missing Values: Handled using imputation where necessary.
+-   **Survey Type**: Longitudinal survey
+-   **Data Characteristics**:
+    -   Variables: `py090n`, `gender`, `citizenship`, `hsize`, `age`
+    -   Scale Levels: Continuous (`py090n`, `age`, `hsize`), Categorical (`gender`, `citizenship`)
+    -   Missing Values: Handled using imputation where necessary.
 
 Below is the R code used for loading and preparing the data:
 
 ```{r setup}
-library(dplyr)  # For data manipulation
-
-# Load data from the package
+library(dplyr)
+library(simFrame)
 data(eusilcP)
+```
 
+```{r show_head}
+head(eusilcP)
+```
+
+```{r}
 # Filter dataset to include only entries from the West Austria region
 west_austria <- eusilcP %>% 
   filter(region %in% c("Vorarlberg", "Tyrol", "Salzburg", "Upper Austria"))
 
-# Summarize missing values to identify potential data quality issues
+west_austria <- west_austria %>% select(gender, citizenship, hsize, age, py090n)
+
+# Transform hsize to integer
+west_austria$hsize <- as.integer(as.character(west_austria$hsize))
+
+# Summarize to identify potential data quality issues
 summary(west_austria)
-west_austria$region <- factor(west_austria$region)
+
+```
+
+Filtered data contains a lot of NAs. Dropping it all together may damage the possible underlying patterns. Let's check what are those values exaclty, maybe there is some relations between NAs
+
+```{r}
+rows_with_NA <- west_austria %>% filter(if_any(everything(), is.na))
+summary(rows_with_NA)
+```
+
+Interestingly, all the data, which contains at lease one NA value in a row consists of children (age summary ranges between -1 and 15), which explains NAs in py090n as it represents unemployment benefits( children are not eligible for unemployment benefits). Also, all the NAs in citizenship are children respectively. Maybe this subset of data directly represents all of the children from the data. Let's check everyone with age less than 16.
+
+```{r}
+rows_with_age_below_16 <- west_austria %>% filter(age < 16)
+summary(rows_with_age_below_16)
+```
+
+Our hypothesis have been confirmed as we can directly see that all persons below 16 are the same persons from previous analysis as it includes the same NA's. So it will make sense to replace py090n NAs with 0 as children are not eligible for unemployment benefits. And citizenship can be inferred from id variable(ask Wurzer)
+
+```{r}
+west_austria$gender <- factor(west_austria$gender)
+west_austria$citizenship
 
 #add factor level called 'no region'
 levels(west_austria$citizenship) <- c(levels(west_austria$citizenship), 'no region')
 
 #convert each NA to 'no region'
 west_austria$citizenship[is.na(west_austria$citizenship)] <- 'no region'
-
 ```
 
 # Descriptive Analysis of the Sample
@@ -55,6 +85,7 @@ west_austria$citizenship[is.na(west_austria$citizenship)] <- 'no region'
 ## Univariate Analysis
 
 ### Net Income (`py090n`)
+
 Net income represents the earnings from interest, dividends, and capital investments. Its distribution helps understand the financial background of individuals in West Austria.
 
 ```{r py090n_hist}
@@ -69,6 +100,7 @@ hist(west_austria$py090n,
 ```
 
 ### Gender Distribution
+
 The `gender` variable indicates whether individuals are male or female. The distribution provides insight into the gender representation in the dataset.
 
 ```{r gender_bar}
@@ -81,6 +113,7 @@ barplot(table_gender,
 ```
 
 ### Age Distribution
+
 Age represents the individual's age at the time of the survey. Its distribution gives insights into the demographic structure of the dataset.
 
 ```{r age_box}
@@ -106,6 +139,7 @@ plot(density(west_austria$age),
 ```
 
 ### Citizenship
+
 The `citizenship` variable differentiates between Austrian citizens and foreigners. This distribution helps understand the dataset's demographic diversity.
 
 ```{r citizenship_bar}
@@ -121,6 +155,7 @@ barplot(sort(table_citizenship, decreasing = TRUE),
 ```
 
 ### Household Size (`hsize`)
+
 Household size represents the number of people in a household. Its distribution is essential to analyze living conditions.
 
 ```{r hsize_hist}
@@ -135,6 +170,7 @@ barplot(table_hsize,
 ## Bivariate Analysis
 
 ### Gender and Net Income
+
 This comparison helps understand the income distribution across genders.
 
 ```{r gender_income_box}
@@ -148,6 +184,7 @@ boxplot(py090n ~ gender,
 ```
 
 ### Citizenship and Net Income
+
 This analysis highlights the income differences between Austrian citizens and foreigners.
 
 ```{r citizenship_income_box}
@@ -161,6 +198,7 @@ boxplot(py090n ~ citizenship,
 ```
 
 ### Age and Net Income
+
 Exploring this relationship helps identify trends or patterns in income with respect to age.
 
 ```{r age_income_scatter}
@@ -175,6 +213,7 @@ abline(lm(py090n ~ age, data = west_austria), col = "red")
 ```
 
 ### Household Size and Net Income
+
 Analyzing this relationship provides insights into how income varies with household size.
 
 ```{r hsize_income_scatter}
