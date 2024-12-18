@@ -4,6 +4,7 @@ author: "group10"
 embed-resources: true
 number-sections: true
 df-print: kable
+fig-align: center
 format:
   pdf:
     toc: true
@@ -22,15 +23,19 @@ The dataset originates from the EUSILC-P survey, which collects comprehensive so
 
 -   **Survey Type**: Longitudinal survey
 -   **Data Characteristics**:
-    -   Variables: `py090n`, `gender`, `citizenship`, `hsize`, `age`
-    -   Scale Levels: Continuous (`py090n`, `age`, `hsize`), Categorical (`gender`, `citizenship`)
+    -   Variables: `py090n`, `gender`, `citizenship`, `hsize`, `age,`
+    -   Scale Levels: Numerical(`py090n`, `age`, `hsize`), Categorical (`gender`, `citizenship`)
     -   Missing Values: Handled using imputation where necessary.
 
 Below is the R code used for loading and preparing the data:
 
+5 univariate, 5 bivariate , 4 joint
+
 ```{r setup}
-library(dplyr)
+library(tidyverse)
 library(simFrame)
+library(forcats)
+library(gridExtra)
 data(eusilcP)
 ```
 
@@ -86,12 +91,30 @@ Net income represents the earnings from interest, dividends, and capital investm
 ```{r py090n_hist}
 # Create a histogram to visualize the distribution of net income
 hist(west_austria$py090n, 
-     breaks = 50, 
      col = "blue", 
-     # display logarithmic scale
-     main = "Distribution of Net Income", 
-     xlab = "Net Income", 
+     main = "Distribution of Unemployment Benefits", 
+     xlab = "Unemployment Benefits", 
      ylab = "Frequency")
+```
+
+As there are too many persons with 0 unemployment benefits, plotting with zero value included does not provide a lot of information, we can plo it excluding zero value
+
+```{r}
+par(mfrow = c(1, 2))
+
+# Histogram for non-zero unemployment benefits
+hist(west_austria$py090n[west_austria$py090n != 0], 
+     col = "blue", 
+     main = "Distribution of Unemployment Benefits", 
+     xlab = "Unemployment Benefits", 
+     ylab = "Frequency")
+
+# Boxplot for non-zero unemployment benefits by gender
+boxplot(west_austria$py090n[west_austria$py090n != 0],
+        col = "cyan", 
+        main = "Unemployment Benefits by Gender", 
+        xlab = "Gender", 
+        ylab = "Net Income")
 ```
 
 ### Gender Distribution
@@ -101,20 +124,29 @@ The `gender` variable indicates whether individuals are male or female. The dist
 ```{r gender_bar}
 # Create a bar plot to show the distribution of genders in the dataset
 table_gender <- table(west_austria$gender)
-barplot(table_gender, 
-        main = "Gender Distribution", 
-        xlab = "Gender", 
-        ylab = "Count")
+ggplot(west_austria, aes(x = gender, fill = gender)) +
+  geom_bar() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Distribution of Sex", x = "Sex", y = "Count") +
+  theme_light() +
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5)+
+  ylim(0, 10000)
+
 ```
+
+Both categories have approximately equal distribution.
 
 ### Age Distribution
 
 Age represents the individual's age at the time of the survey. Its distribution gives insights into the demographic structure of the dataset.
 
-```{r age_box}
-# Create a boxplot to show the age distribution in the dataset
+```{r age_box, fig.height=6}
+par(mfrow = c(2, 1))
 boxplot(west_austria$age, 
         horizontal = TRUE,
+        main = "Age Distribution", 
+        ylab = "Age")
+hist(west_austria$age, 
         main = "Age Distribution", 
         ylab = "Age")
 ```
@@ -142,11 +174,14 @@ The `citizenship` variable differentiates between Austrian citizens and foreigne
 # including the citizenship labels in the axis
 # label NA as unknown
 # sort by count, citizenship is a factor
-table_citizenship <- table(west_austria$citizenship)
-barplot(sort(table_citizenship, decreasing = TRUE), 
-        main = "Citizenship Distribution", 
-        xlab = "Citizenship", 
-        ylab = "Count")
+#table_citizenship <- table(west_austria$citizenship)
+ggplot(west_austria, aes(x = fct_infreq(citizenship), fill = citizenship)) +
+  geom_bar() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Distribution of Sex", x = "Sex", y = "Count") +
+  theme_light() +
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5)+
+  ylim(0, 16000)
 ```
 
 ### Household Size (`hsize`)
@@ -172,10 +207,12 @@ This comparison helps understand the income distribution across genders.
 # Create boxplots to compare net income across genders
 boxplot(py090n ~ gender, 
         data = west_austria, 
+        subset = py090n != 0,
         col = "cyan", 
         main = "Net Income by Gender", 
         xlab = "Gender", 
         ylab = "Net Income")
+
 ```
 
 ### Citizenship and Net Income
@@ -185,7 +222,8 @@ This analysis highlights the income differences between Austrian citizens and fo
 ```{r citizenship_income_box}
 # Create boxplots to compare net income across citizenship statuses
 boxplot(py090n ~ citizenship, 
-        data = west_austria, 
+        data = west_austria,
+        subset = py090n != 0,
         col = "magenta", 
         main = "Net Income by Citizenship", 
         xlab = "Citizenship", 
@@ -198,13 +236,15 @@ Exploring this relationship helps identify trends or patterns in income with res
 
 ```{r age_income_scatter}
 # Create a scatter plot to explore the relationship between age and net income
-plot(west_austria$age, west_austria$py090n, 
-     col = "blue", 
+filtered <- west_austria[west_austria$py090n != 0, ]
+
+plot(filtered$age, filtered$py090n, 
+     col = "blue",
      pch = 16, 
      main = "Net Income vs Age", 
      xlab = "Age", 
      ylab = "Net Income")
-abline(lm(py090n ~ age, data = west_austria), col = "red")
+abline(lm(py090n ~ age, data = filtered), col = "red")
 ```
 
 ### Household Size and Net Income
@@ -213,13 +253,13 @@ Analyzing this relationship provides insights into how income varies with househ
 
 ```{r hsize_income_scatter}
 # Create a scatter plot to explore the relationship between household size and net income
-plot(west_austria$hsize, west_austria$py090n, 
+plot(filtered$hsize, filtered$py090n, 
      col = "red", 
      pch = 16, 
      main = "Net Income vs Household Size", 
      xlab = "Household Size", 
      ylab = "Net Income")
-abline(lm(py090n ~ hsize, data = west_austria), col = "blue")
+abline(lm(py090n ~ hsize, data = filtered), col = "blue")
 ```
 
 # Summary
