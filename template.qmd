@@ -36,6 +36,7 @@ library(tidyverse)
 library(simFrame)
 library(forcats)
 library(gridExtra)
+library(patchwork)
 data(eusilcP)
 ```
 
@@ -52,6 +53,9 @@ west_austria <- west_austria %>% select(gender, citizenship, hsize, age, py090n)
 
 # Transform hsize to integer
 west_austria$hsize <- as.integer(as.character(west_austria$hsize))
+
+# rename py090n to benefits
+west_austria <- west_austria %>% rename(benefits = py090n)
 
 # Summarize to identify potential data quality issues
 summary(west_austria)
@@ -80,7 +84,7 @@ west_austria <- west_austria[complete.cases(west_austria), ]
 summary(west_austria)
 ```
 
-# Descriptive Analysis of the Sample
+# Descriptive Analysis
 
 ## Univariate Analysis
 
@@ -90,7 +94,7 @@ Net income represents the earnings from interest, dividends, and capital investm
 
 ```{r py090n_hist}
 # Create a histogram to visualize the distribution of net income
-hist(west_austria$py090n, 
+hist(west_austria$benefits, 
      col = "blue", 
      main = "Distribution of Unemployment Benefits", 
      xlab = "Unemployment Benefits", 
@@ -100,21 +104,64 @@ hist(west_austria$py090n,
 As there are too many persons with 0 unemployment benefits, plotting with zero value included does not provide a lot of information, we can plo it excluding zero value
 
 ```{r}
-par(mfrow = c(1, 2))
+west_austria_filtered <- subset(west_austria, benefits != 0)
 
 # Histogram for non-zero unemployment benefits
-hist(west_austria$py090n[west_austria$py090n != 0], 
-     col = "blue", 
-     main = "Distribution of Unemployment Benefits", 
-     xlab = "Unemployment Benefits", 
-     ylab = "Frequency")
+p1 <- ggplot(west_austria_filtered, aes(x = benefits)) +
+  geom_histogram(binwidth = 500, fill = "blue", color = "black") +
+  labs(title = "Distribution of Unemployment Benefits",
+       x = "Unemployment Benefits", y = "Frequency") +
+  theme_light()
 
 # Boxplot for non-zero unemployment benefits by gender
-boxplot(west_austria$py090n[west_austria$py090n != 0],
-        col = "cyan", 
-        main = "Unemployment Benefits by Gender", 
-        xlab = "Gender", 
-        ylab = "Net Income")
+p2 <- ggplot(west_austria_filtered, aes(x = "", y = benefits)) +
+  geom_boxplot() + 
+  theme_light()
+
+# Arrange plots side by side
+(p1 | p2) + plot_annotation(title = "Distribution of Unemployment Benefits")
+```
+
+### Age Distribution
+
+Age represents the individual's age at the time of the survey. Its distribution gives insights into the demographic structure of the dataset.
+
+```{r}
+# Histogram for non-zero unemployment benefits
+p1 <- ggplot(west_austria_filtered, aes(x = age)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black") +
+  labs(title = "Distribution of Unemployment Benefits",
+       x = "Unemployment Benefits", y = "Frequency") +
+  theme_light()
+
+# Boxplot for non-zero unemployment benefits by gender
+p2 <- ggplot(west_austria_filtered, aes(x = "", y = age)) +
+  geom_boxplot() + 
+  theme_light()
+
+# Arrange plots side by side
+(p1 | p2) + plot_annotation(title = "Distribution of Unemployment Benefits")
+```
+
+### Household Size (`hsize`)
+
+Household size represents the number of people in a household. Its distribution is essential to analyze living conditions.
+
+```{r}
+# Histogram for non-zero unemployment benefits
+p1 <- ggplot(west_austria_filtered, aes(x = hsize)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black") +
+  labs(title = "Distribution of Unemployment Benefits",
+       x = "Unemployment Benefits", y = "Frequency") +
+  theme_light()
+
+# Boxplot for non-zero unemployment benefits by gender
+p2 <- ggplot(west_austria_filtered, aes(x = "", y = hsize)) +
+  geom_boxplot() + 
+  theme_light()
+
+# Arrange plots side by side
+(p1 | p2) + plot_annotation(title = "Distribution of Unemployment Benefits")
 ```
 
 ### Gender Distribution
@@ -136,35 +183,6 @@ ggplot(west_austria, aes(x = gender, fill = gender)) +
 
 Both categories have approximately equal distribution.
 
-### Age Distribution
-
-Age represents the individual's age at the time of the survey. Its distribution gives insights into the demographic structure of the dataset.
-
-```{r age_box, fig.height=6}
-par(mfrow = c(2, 1))
-boxplot(west_austria$age, 
-        horizontal = TRUE,
-        main = "Age Distribution", 
-        ylab = "Age")
-hist(west_austria$age, 
-        main = "Age Distribution", 
-        ylab = "Age")
-```
-
-```{r age_summary}
-# Summarize the age variable
-summary(west_austria$age)
-```
-
-```{r age_density}
-# Create a density plot to visualize the distribution of age fill graph
-plot(density(west_austria$age), 
-     main = "Density Plot of Age",
-     xlab = "Age", 
-     ylab = "Density"
-     )
-```
-
 ### Citizenship
 
 The `citizenship` variable differentiates between Austrian citizens and foreigners. This distribution helps understand the dataset's demographic diversity.
@@ -184,19 +202,6 @@ ggplot(west_austria, aes(x = fct_infreq(citizenship), fill = citizenship)) +
   ylim(0, 16000)
 ```
 
-### Household Size (`hsize`)
-
-Household size represents the number of people in a household. Its distribution is essential to analyze living conditions.
-
-```{r hsize_hist}
-# Create a histogram to visualize the distribution of household sizes
-table_hsize <- table(west_austria$hsize)
-barplot(table_hsize, 
-        main = "Household Size Distribution", 
-        xlab = "Household Size", 
-        ylab = "Count")
-```
-
 ## Bivariate Analysis
 
 ### Gender and Net Income
@@ -205,13 +210,12 @@ This comparison helps understand the income distribution across genders.
 
 ```{r gender_income_box}
 # Create boxplots to compare net income across genders
-boxplot(py090n ~ gender, 
-        data = west_austria, 
-        subset = py090n != 0,
-        col = "cyan", 
-        main = "Net Income by Gender", 
-        xlab = "Gender", 
-        ylab = "Net Income")
+ggplot(west_austria_filtered, aes(x = gender, y = benefits, fill = gender)) +
+  geom_boxplot() +
+  labs(title = "Net Income by Gender",
+       x = "Gender",
+       y = "Net Income") +
+  theme_light()
 
 ```
 
@@ -221,13 +225,13 @@ This analysis highlights the income differences between Austrian citizens and fo
 
 ```{r citizenship_income_box}
 # Create boxplots to compare net income across citizenship statuses
-boxplot(py090n ~ citizenship, 
-        data = west_austria,
-        subset = py090n != 0,
-        col = "magenta", 
-        main = "Net Income by Citizenship", 
-        xlab = "Citizenship", 
-        ylab = "Net Income")
+ggplot(west_austria_filtered, aes(x = citizenship, y = benefits, fill = gender)) +
+  geom_boxplot() +
+  labs(title = "Net Income by Gender",
+       x = "Gender",
+       y = "Net Income") +
+  theme_light()
+
 ```
 
 ### Age and Net Income
@@ -235,16 +239,15 @@ boxplot(py090n ~ citizenship,
 Exploring this relationship helps identify trends or patterns in income with respect to age.
 
 ```{r age_income_scatter}
-# Create a scatter plot to explore the relationship between age and net income
-filtered <- west_austria[west_austria$py090n != 0, ]
 
-plot(filtered$age, filtered$py090n, 
-     col = "blue",
-     pch = 16, 
-     main = "Net Income vs Age", 
-     xlab = "Age", 
-     ylab = "Net Income")
-abline(lm(py090n ~ age, data = filtered), col = "red")
+
+ggplot(west_austria_filtered, aes(x = age, y = benefits)) +
+  geom_point(color = "blue", alpha = 0.7) +  # Scatter points
+  geom_smooth(method = "lm", color = "red", se = FALSE) +  # Regression line
+  labs(title = "Net Income vs Age",
+       x = "Age",
+       y = "Net Income") +
+  theme_light()
 ```
 
 ### Household Size and Net Income
@@ -253,13 +256,67 @@ Analyzing this relationship provides insights into how income varies with househ
 
 ```{r hsize_income_scatter}
 # Create a scatter plot to explore the relationship between household size and net income
-plot(filtered$hsize, filtered$py090n, 
-     col = "red", 
-     pch = 16, 
-     main = "Net Income vs Household Size", 
-     xlab = "Household Size", 
-     ylab = "Net Income")
-abline(lm(py090n ~ hsize, data = filtered), col = "blue")
+ggplot(west_austria_filtered, aes(x = factor(hsize), y = benefits, fill = factor(hsize))) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 16) +
+  scale_fill_brewer(palette = "Set2") +  # Adjust fill colors
+  labs(title = "Net Income vs Household Size",
+       x = "Household Size",
+       y = "Net Income") +
+  theme_light()
+```
+
+### Joint variables
+
+gender x hsize x benefits
+
+```{r}
+p1 <- ggplot(west_austria_filtered, aes(x = factor(hsize), y = benefits, fill = gender)) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 16) +
+  labs(title = "Benefits by Gender and Household Size",
+       x = "Household Size",
+       y = "Benefits") +
+  scale_fill_brewer(palette = "Set2") +
+  theme_light()
+p1
+```
+
+Gender x age x benefits
+
+```{r}
+p2 <- ggplot(west_austria_filtered, aes(x = age, y = benefits, color = gender)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Benefits by Gender and Age",
+       x = "Age",
+       y = "Benefits") +
+  theme_light()
+p2
+```
+
+Citizenship x hsize x benefits
+
+```{r}
+p3 <- ggplot(west_austria_filtered, aes(x = factor(hsize), y = benefits, fill = citizenship)) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 16) +
+  labs(title = "Benefits by Citizenship and Household Size",
+       x = "Household Size",
+       y = "Benefits") +
+  scale_fill_brewer(palette = "Set3") +
+  theme_light()
+p3
+```
+
+Citizenship x Age x Benefits
+
+```{r}
+p4 <- ggplot(west_austria_filtered, aes(x = age, y = benefits, color = citizenship)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, formula = y~x) +
+  labs(title = "Benefits by Citizenship and Age",
+       x = "Age",
+       y = "Benefits") +
+  theme_light()
+p4
 ```
 
 # Summary
