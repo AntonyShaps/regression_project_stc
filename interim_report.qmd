@@ -1,0 +1,405 @@
+---
+title: "Interim report: EUSILC-P Dataset Analysis"
+author: "Anton Shapovalov, Richard Maria"
+embed-resources: true
+number-sections: true
+df-print: kable
+fig-align: center
+format:
+  pdf:
+    toc: true
+editor: visual
+---
+
+```{r setup}
+library(tidyverse)
+library(simFrame)
+library(forcats)
+library(gridExtra)
+library(patchwork)
+data(eusilcP)
+
+# modify default theme
+theme_set(theme_light() + theme(plot.title = element_text(hjust = 0.5)))
+```
+
+# Introduction
+
+The primary objective of this analysis is to investigate the relationship between net income from unemployment benefits in national currency (€) per year and the predictors `gender`, `citizenship`, `hsize` (household size), and `age` (in years) in the region of West Austria. We focus primarily on the group of people receiving benefits, descriptive statistics will be used to understand the distribution and relationships among the variables in this subset of the EUSILC-P dataset.
+
+Methods of analysis include univariate visualizations, bivariate comparisons, and the exploration of potential interactions among predictors to guide subsequent regression modeling.
+
+# Data Collection
+
+The dataset originates from the EUSILC-P survey, which collects comprehensive social and economic data.
+
+-   **Survey Type**: Longitudinal survey
+-   **Data Characteristics**:
+    -   Variables: `benefits` (_py090n_), `gender`, `citizenship`, `hsize`, `age`
+    -   Scale Levels: Numerical(`benefits`, `age`, `hsize`), Categorical (`gender`, `citizenship`)
+    -   Missing Values: Handled using imputation where necessary.
+
+5 univariate, 5 bivariate , 4 joint
+
+
+```{r}
+# Filter dataset to include only entries from the West Austria region
+west_austria <- eusilcP %>% 
+  filter(region %in% c("Vorarlberg", "Tyrol", "Salzburg", "Upper Austria"))
+
+west_austria <- west_austria %>% select(gender, citizenship, hsize, age, py090n)
+
+# Transform hsize to integer
+west_austria$hsize <- as.integer(as.character(west_austria$hsize))
+
+# rename py090n to benefits
+west_austria <- west_austria %>% rename(benefits = py090n)
+
+# Summarize to identify potential data quality issues
+summary(west_austria)
+
+```
+
+Filtered data contains a lot of NAs. Dropping it all together may damage the possible underlying patterns. Let's check what are those values exaclty, maybe there is some relations between NAs
+
+```{r}
+rows_with_NA <- west_austria %>% filter(if_any(everything(), is.na))
+summary(rows_with_NA)
+```
+
+Interestingly, all the data, which contains at lease one NA value in a row consists of children (age summary ranges between -1 and 15), which explains NAs in `benefits` as it represents unemployment benefits ( children are not eligible for unemployment benefits). Also, all the NAs in citizenship are children respectively. Maybe this subset of data directly represents all of the children from the data. Let's check everyone with age less than 16.
+
+```{r}
+rows_with_age_below_16 <- west_austria %>% filter(age < 16)
+summary(rows_with_age_below_16)
+```
+
+Indeed, our hypothesis have been confirmed as we can directly see that all persons below 16 are the same persons from previous analysis as it includes the same NA's. So it will make sense to totally remove this subset of the data as it represents children, who are not eligible for unemployment benefits
+
+```{r}
+west_austria <- west_austria[complete.cases(west_austria), ]
+
+summary(west_austria)
+```
+
+# Descriptive Analysis
+
+## Univariate Analysis
+
+### Net Income from Unemployed Benefits (`benefits`)
+
+Net income from unemployment benefits (`benefits`) is the primary variable of interest. A histogram is used to visualize the distribution of benefits.
+
+```{r benefits_hist}
+# Create a histogram to visualize the distribution of net income
+hist(west_austria$benefits, 
+     col = "blue", 
+     main = "Distribution of Unemployment Benefits", 
+     xlab = "Unemployment Benefits", 
+     ylab = "Frequency")
+```
+
+As there are too many persons with 0 unemployment benefits, plotting with zero value included does not provide a lot of information, we can plot it excluding zero values.
+
+```{r}
+west_austria_filtered <- subset(west_austria, benefits != 0)
+
+# Histogram for non-zero unemployment benefits
+p1 <- ggplot(west_austria_filtered, aes(x = benefits)) +
+  geom_histogram(binwidth = 500, fill = "blue", color = "black") +
+  labs(x = "Unemployment Benefits", y = "Frequency")
+
+# Boxplot for non-zero unemployment benefits by gender
+p2 <- ggplot(west_austria_filtered, aes(x = "", y = benefits)) +
+  geom_boxplot() + 
+  labs(x="", y="Unemployment Benefits")
+
+# Arrange plots side by side
+(p1 | p2) + plot_annotation(title = "Distribution of Unemployment Benefits")
+```
+
+```{r}
+summary(west_austria_filtered$benefits)
+```
+
+The distribution of non zero net income from unemployment benefits is left-skewed, with a mean of €4485.4 and a median of €3184.3. The majority of individuals receive benefits below €6204.5.
+
+### Age Distribution
+
+Age represents the individual's age at the time of the survey. Its distribution gives insights into the demographic structure of the dataset.
+
+```{r}
+# Histogram for age distribution
+p1 <- ggplot(west_austria, aes(x = age)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black") +
+  labs(title = "Distribution of Unemployment Benefits",
+       x = "Unemployment Benefits", y = "Frequency")
+
+# Boxplot for age distribution
+p2 <- ggplot(west_austria, aes(x = "", y = age)) +
+  geom_boxplot() + 
+  labs(title = "Age Distribution",
+       x = "", y = "Age")
+
+# Arrange plots side by side
+(p1 | p2) + plot_annotation(title = "Distribution of Unemployment Benefits")
+```
+
+```{r}
+summary(west_austria$age)
+```
+  
+The age distribution has a median of 45 years, with a mean of 46.24 years. The majority of individuals are between 32 and 60 years old, with a minimum age of 16 and a maximum age of 94. The distribution is slightly right-skewed.
+
+```{r}
+summary(west_austria_filtered$age)
+```
+The age distribution has a mean age of 39.36 years. The majority of individuals are between 28 and 49 years old. The lower bound of 16 comes from the fact that children are not eligible for unemployment benefits. The oldest person in the dataset is 92 years old. This could indicate an error in the data, as people with that age usually do not receive unemployment benefits.
+
+
+### Household Size (`hsize`)
+
+Household size represents the number of people in a household. Its distribution is essential to analyze living conditions.
+
+```{r}
+# Histogram for houshold size
+p1 <- ggplot(west_austria, aes(x = factor(hsize))) +
+  geom_bar(fill = "blue", color = "black") +
+  labs(x = "Household Size", y = "Frequency")
+
+# Boxplot for household size
+p2 <- ggplot(west_austria, aes(x = "", y = hsize)) +
+  geom_boxplot() + 
+  labs(x="", y="Distribution of Household Size")
+
+# Arrange plots side by side
+(p1 | p2) + plot_annotation(title = "Distribution of Unemployment Benefits")
+```
+
+```{r}
+summary(west_austria$hsize)
+```
+  
+The distribution of household size in western austria has a median of 3 people per household. The majority of households have between 2 and 4 members. The minimum value of 1 indicates that some individuals live alone. A household size of more than 4 is less common.
+
+### Gender Distribution
+
+The `gender` variable indicates whether individuals are male or female. The distribution provides insight into the gender representation in the dataset.
+
+```{r gender_bar}
+# Create a bar plot to show the distribution of genders in the dataset
+table_gender <- table(west_austria$gender)
+ggplot(west_austria, aes(x = gender, fill = gender)) +
+  geom_bar() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Distribution of Gender", x = "Gender", y = "Frequency", fill="Gender") +
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5)+
+  ylim(0, 10000)
+
+```
+
+```{r}
+summary(west_austria$gender)
+```
+
+Both categories have approximately equal distribution. This balance is essential for ensuring
+representativeness in the dataset.
+
+### Citizenship
+
+The `citizenship` variable differentiates between Austrian citizens and foreigners. This distribution helps understand the dataset's demographic diversity.
+
+```{r citizenship_bar}
+# Create a bar plot to show the distribution of citizenship statuses
+# including the citizenship labels in the axis
+# label NA as unknown
+# sort by count, citizenship is a factor
+#table_citizenship <- table(west_austria$citizenship)
+ggplot(west_austria, aes(x = fct_infreq(citizenship), fill = citizenship)) +
+  geom_bar() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Distribution of Citizenship", x = "Citizenship", y = "Frequency", fill="Citizenship") +
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5) +
+  ylim(0, 16000)
+```
+
+```{r}
+summary(west_austria$citizenship)
+```
+
+The majority of individuals in the dataset are Austrian citizens, followed by citizens from other countries outside the European Union. A smaller proportion of individuals are from other countries inside the EU.
+
+## Bivariate Analysis
+
+### Gender and Net Income from Unemployed Benefits
+
+This comparison helps understand the income distribution across genders.
+
+```{r gender_income_box}
+# Create boxplots to compare net income across genders
+ggplot(west_austria_filtered, aes(x = gender, y = benefits, fill = gender)) +
+  geom_boxplot() +
+  labs(title = "Net Income from Unemployed Benefits by Gender",
+       x = "Gender",
+       y = "Income (in € per year)",
+       fill="Gender")
+```
+
+On a first glance it seems that there is no significant difference between the unemployed benefits between male and female. Let's check the summary statistics to confirm this.
+
+```{r}
+bartlett.test(benefits ~ gender, data = west_austria)
+```
+
+The p-value is less than 0.05, which indicates that the variances of the two groups are significantly different. Therefore, we should use the Welch's t-test to compare the means of the two groups.
+
+```{r}
+t.test(benefits ~ gender, data = west_austria)
+```
+
+The t-test results suggest no significant difference in the average benefits between male and female groups. While the sample means differ slightly, the variation within the data is too large relative to the difference for it to be meaningful in a statistical sense.
+
+### Citizenship and Net Income from Unemployed Benefits
+
+This analysis highlights the income differences from unemployed benefits between Austrian citizens and foreigners.
+
+```{r citizenship_income_box}
+# Create boxplots to compare net income across citizenship statuses
+ggplot(west_austria_filtered, aes(x = citizenship, y = benefits, fill = gender)) +
+  geom_boxplot() +
+  labs(title = "Net Income by Citizenship",
+       x = "Cutizenship",
+       y = "Net Income",
+       fill = "Citizenship")
+
+```
+
+In this plot we see great differences between the groups citizenship, gender and the unemployed benefits. The group of Austrian citizens has a higher median and a smaller range of values compared to the other groups. The group of citizens from other countries inside the EU has the lowest median and the highest range of values. The group of citizens from other countries outside the EU has a median between the other two groups and a range of values similar to the group of citizens from other countries inside the EU.
+
+```{r}
+bartlett.test(benefits ~ citizenship, data = west_austria)
+```
+The p-value is less than 0.05, which indicates that the variances of the three groups are significantly different. Therefore, we should use the Welch's ANOVA to compare the means of the three groups.
+
+```{r}
+oneway.test(benefits ~ citizenship, data = west_austria)
+```
+
+The p-value is less than 0.05, which indicates that there is a significant difference in the average benefits between the three groups.
+
+### Age and Net Income
+
+Exploring this relationship helps identify trends or patterns in income with respect to age.
+
+```{r age_income_scatter}
+
+
+ggplot(west_austria_filtered, aes(x = age, y = benefits)) +
+  geom_point(color = "blue", alpha = 0.7) +  # Scatter points
+  geom_smooth(method = "lm", color = "red", se = FALSE) +  # Regression line
+  labs(title = "Net Income vs Age",
+       x = "Age",
+       y = "Net Income")
+```
+
+The scatter plot shows a slight positive relationship between age and net income from unemployment benefits. The regression line indicates that older individuals tend to have slightly higher benefits.
+
+### Household Size and Net Income from Benefits
+
+Analyzing this relationship provides insights into how income varies with household size.
+
+```{r hsize_income_scatter}
+# Create a scatter plot to explore the relationship between household size and net income
+ggplot(west_austria_filtered, aes(x = factor(hsize), y = benefits, fill = factor(hsize))) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 16) +
+  scale_fill_brewer(palette = "Set2") +  # Adjust fill colors
+  labs(title = "Net Income from Benefits vs Household Size",
+       x = "Household Size",
+       y = "Income (in € per year)",
+       fill = "Household Size")
+```
+
+The boxplot shows that the median net income from benefits is highest for households with 6-7 members. The range of net income is also wider for households with fewer members. This could be due to the presence of outliers in households with fewer people.
+
+```{r}
+bartlett.test(benefits ~ hsize, data = west_austria)
+```
+
+Bartlett's test indicates that the variances of the nine groups are significantly different. Therefore, we should use the Welch's ANOVA to compare the means of the nine groups.
+
+```{r}
+oneway.test(benefits ~ hsize, data = west_austria)
+```
+
+With a p-value of 0.0006799, we can reject the null hypothesis that the means of the nine groups are equal. This suggests that there is a significant difference in the average benefits across different household sizes.
+
+### Joint variables
+
+### Household Size, Gender and Net Income from Benefits
+
+Analyzing the relationship of Gender, Household Size and Net Income from Benefits. 
+
+```{r}
+p1 <- ggplot(west_austria_filtered, aes(x = factor(hsize), y = benefits, fill = gender)) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 16) +
+  labs(title = "Net Income from Benefits by Gender and Household Size",
+       x = "Household Size",
+       y = "Income (€ per year)",
+       fill = "Gender") +
+  scale_fill_brewer(palette = "Set2")
+p1
+```
+
+This plot shows the relationship between Gender, Household Size and Benefits. In this representation it is hard to tell which household size has the highest benefits for unemployed people. But what we can see is, that female have a higher median of benefits than male in households with 1, 2, 4, 7 and 8 members. In households with 3, 5 and 6 members male have a higher median benefit. We also can see that no matter how big the household size is, male have a higher range of benefits than female persons.
+
+### Gender, Age and Net Income from Benefits
+
+Analyzing the relationship between Gender, Age and Net Income from Benefits including regression lines for male and female property of the gender variable.
+
+```{r}
+p2 <- ggplot(west_austria_filtered, aes(x = age, y = benefits, color = gender)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Net Income from Benefits by Gender and Age",
+       x = "Age",
+       y = "Income (€ per year)",
+       fill = "Gender")
+p2
+```
+
+The regression line for females begins at a higher intercept compared to the regression line for males. However, the male regression line has a steeper slope, surpassing the female regression line at approximately 35 years of age. As unemployed benefits in austria is based on income from the past, this could indicate that
+female persons have a lower income than male.
+
+### Citizenship, Household Size and Net Income from Benefits
+
+Analyzing the relationship between Citizenship, Household Size and Net Income from Benefits.
+
+```{r}
+p3 <- ggplot(west_austria_filtered, aes(x = factor(hsize), y = benefits, fill = citizenship)) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 16) +
+  labs(title = "Net Income from Benefits by Citizenship and Household Size",
+       x = "Household Size",
+       y = "Income (€ per year)",
+       fill = "Citizenship") +
+  scale_fill_brewer(palette = "Set3")
+p3
+```
+
+### Citizenship, Age and Net Income from Benefits
+
+Analyzing the relationship between Citizenship, Age and Net Income from Benefits.
+
+```{r}
+p4 <- ggplot(west_austria_filtered, aes(x = age, y = benefits, color = citizenship)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, formula = y~x) +
+  labs(title = "Net Income from Benefits by Citizenship and Age",
+       x = "Age",
+       y = "Income (€ per year)",
+       fill = "Citizenship")
+p4
+```
+
+# Summary
+
+The descriptive analysis reveals key patterns in the dataset. The distribution of net income is skewed, and there are noticeable differences in income across genders and citizenships. Age and household size appear to have linear relationships with income. These findings set the stage for deeper inferential analysis in the final report.
