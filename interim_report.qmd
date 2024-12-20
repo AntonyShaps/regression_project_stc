@@ -5,13 +5,15 @@ embed-resources: true
 number-sections: true
 df-print: kable
 fig-align: center
+execute:
+  echo: false
 format:
   pdf:
     toc: true
 editor: visual
 ---
 
-```{r setup}
+```{r setup , include=FALSE}
 library(tidyverse)
 library(simFrame)
 library(forcats)
