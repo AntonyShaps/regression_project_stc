@@ -17,10 +17,9 @@ editor: visual
 library(tidyverse)
 library(simFrame)
 library(forcats)
-library(gridExtra)
 library(patchwork)
 library(scales)
-library(pander)
+library(effects)
 data(eusilcP)
 
 # modify default theme
@@ -184,7 +183,7 @@ p2 <- ggplot(west_austria, aes(x = "", y = hsize)) +
 summary(west_austria$hsize)
 ```
 
-The distribution of household size in western austria has a median of 3 people per household. The majority of households have between 2 and 4 members. The minimum value of 1 indicates that some individuals live alone. A household size of more than 4 is less common. Households of size 8 and 9 can be considered outliers.
+The distribution of household size in western Austria has a median of 3 people per household. The majority of households have between 2 and 4 members. The minimum value of 1 indicates that some individuals live alone. A household size of more than 4 is less common. Households of size 8 and 9 can be considered outliers.
 
 ### Gender (`gender`)
 
@@ -240,7 +239,7 @@ The plot does not indicate significant differences between the two groups. Both 
 This analysis highlights the income differences from unemployed benefits between Austrian citizens and foreigners.
 
 ```{r citizenship_income_box}
-ggplot(west_austria_filtered, aes(x = citizenship, y = benefits, fill = gender)) +
+ggplot(west_austria_filtered, aes(x = citizenship, y = benefits, fill = citizenship)) +
   geom_boxplot() +
   scale_y_continuous(breaks = breaks_pretty(n = 15)) +
   labs(title = "Unemployment benefits by Citizenship",
@@ -250,7 +249,7 @@ ggplot(west_austria_filtered, aes(x = citizenship, y = benefits, fill = gender))
 
 ```
 
-This plot demonstrates approximately similar medians of unemployment benefits across citizenship groups. However, the range of values and the number of outliers are largest for the Austrian group, which may be influenced by the unbalanced distribution. Additionally, it is worth noting that the median unemployment benefits for females are higher in each citizenship group than the benefits for males in the same group.
+The "Other" median is noticeably higher than other two categories and "AT" has a large amount of outliers, which may be attributed to highly unbalanced distribution of the given categories.
 
 ### Age x Unemployment Benefits
 
@@ -370,6 +369,66 @@ p4
 
 The intercept is highest for the 'Other' category, followed by 'AT' and 'EU'. Interestingly, the slope relationships are reversed, with 'EU' visually having the steepest slope, followed by 'AT' and 'Other'. However, all three groups indicate that unemployment benefits increase with age.
 
-# Summary
+### Citizenship x Gender x Unemployment Benefits
 
-The descriptive analysis reveals key patterns in the dataset. The distribution of net income is skewed, and there are noticeable differences in income across genders and citizenships. Age and household size appear to have linear relationships with income. These findings set the stage for deeper inferential analysis in the final report.
+```{r}
+ggplot(west_austria_filtered, aes(x = citizenship, y = benefits, fill = gender)) +
+  geom_boxplot() +
+  scale_y_continuous(breaks = breaks_pretty(n = 15)) +
+  labs(title = "Unemployment benefits by Citizenship",
+       x = "Citizenship",
+       y = "Unemployment benefits",
+       fill = "Gender")
+```
+
+This plot demonstrates approximately similar medians of unemployment benefits across citizenship groups. However, the range of values and the number of outliers are largest for the Austrian group, which may be influenced by the unbalanced distribution. Additionally, it is worth noting that the median unemployment benefits for females are higher in each citizenship group.
+
+## Descriptive Analysis Summary
+
+The key insights, which can be helpful in the model building are following:
+
+-   Unemployment benefits variable is very unbalanced and has a lot of people with zero benefits and seems to follow log normal distribution, therefore log1p may be a good candidate for transformation.
+
+-   Household size and Age are also slightly skewed, which may lead to optional transformation, however only household size has outliers.
+
+-   Citizenship is also highly unbalanced, which may significantly influence the model
+
+-   Unemployment benefits seem to positively correlate with age.
+
+-   Age seems to have interaction effect with gender and citizenship
+
+-   Probably an interaction effect of citizenship with gender
+
+# Regression modelling
+
+```{r}
+simple_model <- lm(benefits ~ age + hsize + gender + citizenship, data = west_austria)
+summary(simple_model)
+```
+
+We can immediately observe that R-squared is extremely low and equals to approximately 0.006, which means that the model explain only 0.6 percent of data. The given situation urges us to check for the distribution of residuals, as the model is highly unfit.
+
+```{r}
+qqnorm(residuals(simple_model))
+qqline(residuals(simple_model))
+```
+
+As it was implied the residuals are non-normally distributed especially at a higher end of distribution, which may signal for log transforming the target variable
+
+```{r}
+log_model <- lm(log1p(benefits) ~ age + hsize + gender + citizenship, data = west_austria)
+qqnorm(residuals(log_model))
+qqline(residuals(log_model))
+```
+
+Still not normally distributed residuals
+
+# Conclusion and criticism
+
+## Summary
+
+## Possible problems
+
+## Generalizability of the findings 
+
+## Possible further questions
