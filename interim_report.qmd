@@ -108,7 +108,7 @@ Unemployment benefits (`benefits`) is the primary variable of interest. A histog
 hist(west_austria$benefits, 
      col = "blue", 
      main = "Distribution of Unemployment Benefits", 
-     xlab = "Unemployment Benefits", 
+     xlab = "Unemployment Benefits (in € per year)", 
      ylab = "Frequency")
 ```
 
@@ -121,12 +121,12 @@ p1 <- ggplot(west_austria_filtered, aes(x = benefits)) +
   geom_histogram(bins = 25, fill = "blue", color = "black") +
   scale_y_continuous(breaks = breaks_pretty(n = 8)) +
   scale_x_continuous(breaks = breaks_pretty(n = 10)) +
-  labs(x = "Unemployment Benefits", y = "Frequency")
+  labs(x = "Unemployment Benefits (in € per year)", y = "Frequency")
 
 p2 <- ggplot(west_austria_filtered, aes(x = "", y = benefits)) +
   geom_boxplot(colour = "blue") +
   scale_y_continuous(breaks = breaks_pretty(n = 12)) +
-  labs(x="", y="Unemployment Benefits")
+  labs(x="", y="Unemployment Benefits (in € per year)")
 
 (p1 | p2) + plot_annotation(title = "Distribution of Unemployment Benefits")
 ```
@@ -146,12 +146,12 @@ p1 <- ggplot(west_austria, aes(x = age)) +
   geom_histogram(fill = "blue", bins = 20, color = "black") +
   scale_y_continuous(breaks = breaks_pretty(n = 8)) +
   scale_x_continuous(breaks = breaks_pretty(n = 10)) +
-  labs(x = "Age", y = "Frequency")
+  labs(x = "Age (in years)", y = "Frequency")
 
 p2 <- ggplot(west_austria, aes(x = "", y = age)) +
   geom_boxplot(colour="blue") +
   scale_y_continuous(breaks = breaks_pretty(n = 12)) +
-  labs(x = "", y = "Age")
+  labs(x = "", y = "Age (in years)")
 
 (p1 | p2) + plot_annotation(title = "Distribution of Age")
 ```
@@ -244,13 +244,13 @@ ggplot(west_austria_filtered, aes(x = citizenship, y = benefits, fill = gender))
   geom_boxplot() +
   scale_y_continuous(breaks = breaks_pretty(n = 15)) +
   labs(title = "Unemployment benefits by Citizenship",
-       x = "Gender",
-       y = "Unemployment benefits",
+       x = "Citizenship",
+       y = "Unemployment Benefits (in € per year)",
        fill = "Citizenship")
 
 ```
 
-This plot demonstrates approximately similar medians of unemployment benefits across citizenship groups. However, the range of values and the number of outliers are largest for the Austrian group, which may be influenced by the unbalanced distribution. Additionally, it is worth noting that the median unemployment benefits for females are higher in each citizenship group.
+This plot demonstrates approximately similar medians of unemployment benefits across citizenship groups. However, the range of values and the number of outliers are largest for the Austrian group, which may be influenced by the unbalanced distribution. Additionally, it is worth noting that the median unemployment benefits for females are higher in each citizenship group than the benefits for males in the same group.
 
 ### Age x Unemployment Benefits
 
@@ -262,8 +262,8 @@ ggplot(west_austria_filtered, aes(x = age, y = benefits)) +
   scale_y_continuous(breaks = breaks_pretty(n = 15)) +
   scale_x_continuous(breaks = breaks_pretty(n = 10)) +
   geom_smooth(method = "lm", color = "red", se = TRUE, formula =  y~x) +
-  labs(title = "Unemployment Benefits vs Age",
-       x = "Age",
+  labs(title = "Unemployment Benefits by Age",
+       x = "Age (in years)",
        y = "Unemployment Benefits (in € per year)")
 ```
 
@@ -277,7 +277,7 @@ Analyzing this relationship provides insights into how income varies with househ
 ggplot(west_austria_filtered, aes(x = factor(hsize), y = benefits, fill = factor(hsize))) +
   geom_boxplot() +
   scale_y_continuous(breaks = breaks_pretty(n = 15)) +
-  labs(title = "Unemployment Benefits vs Household Size",
+  labs(title = "Unemployment Benefits by Household Size",
        x = "Household Size",
        y = "Unemployment Benefits (in € per year)",
        fill = "Household Size")
@@ -287,7 +287,7 @@ The boxplot shows that the median net income from benefits is highest for househ
 
 ## Joint Plots
 
-### Gender x Household Size  x Unemployment Benefits
+### Gender x Household Size x Unemployment Benefits
 
 Analyzing the relationship of Gender, Household Size and Net Income from Benefits.
 
@@ -320,7 +320,7 @@ p2 <- ggplot(west_austria_filtered, aes(x = age, y = benefits, color = gender)) 
     "female" = "red"
   )) +
   labs(title = "Unemployment Benefits by Gender and Age",
-       x = "Age",
+       x = "Age (in years)",
        y = "Unemployment Benefits (in € per year)",
        fill = "Gender")
 p2
@@ -362,7 +362,7 @@ p4 <- ggplot(west_austria_filtered, aes(x = age, y = benefits, color = citizensh
     "Other" = "darkred"
   )) +
   labs(title = "Unemployment Benefits by Citizenship and Age",
-       x = "Age",
+       x = "Age (in years)",
        y = "Unemployment Benefits (€ per year)",
        fill = "Citizenship")
 p4
