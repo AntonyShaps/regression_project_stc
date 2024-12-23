@@ -391,7 +391,7 @@ This plot demonstrates approximately similar medians of unemployment benefits ac
 
 The key insights, which can be helpful in the model building are following:
 
--   Unemployment benefits variable is very unbalanced and has a lot of people with zero benefits and seems to follow log normal distribution, therefore log1p may be a good candidate for transformation.
+-   Unemployment benefits variable is very unbalanced and has a lot of people with zero benefits and seems to follow log normal distribution, therefore log1p may be a good candidate for transformation and it may be challenging to build a model for such an unbalanced data.
 
 -   Household size and Age are also slightly skewed, which may lead to optional transformation, however only household size has outliers.
 
@@ -430,7 +430,7 @@ Still not normally distributed residuals and non linearity in residuals. Let's t
 ```{r}
 bc_benefits <- boxcox((benefits+1)~1, data = west_austria, plotit = FALSE)
 lambda_benefits <- bc_benefits$x[which.max(bc_benefits$y)]
-west_austria$boxcox_benefits <- ((west_austria$benefits +1) ^ lambda_benefits - 1) / lambda_benefits
+west_austria$boxcox_benefits <- ((west_austria$benefits+1) ^ lambda_benefits - 1) / lambda_benefits
 
 boxcox_model <- lm(boxcox_benefits ~ age + hsize + gender + citizenship, data = west_austria)
 qqnorm(residuals(boxcox_model))
@@ -440,15 +440,14 @@ qqline(residuals(boxcox_model))
 We still observe large residuals in a higher end but less non-linearity in residuals. Let's compare studentized residuals of models to have better understanding of deviation.
 
 ```{r, fig.width=8, fig.height= 8}
-# Set up the plotting area to have 3 rows and 1 column
+
 par(mfrow = c(3, 1))
 
-# Generate the QQ plots
+
 qqPlot(rstudent(boxcox_model), main = "Box-Cox Model")
 qqPlot(rstudent(log_model), main = "Log Model")
 qqPlot(rstudent(simple_model), main = "Simple Model")
 
-# Reset the plotting area to default (1 plot per page)
 par(mfrow = c(1, 1))
 
 ```
@@ -473,7 +472,7 @@ adj_r2_model2 <- summary(full_boxcox_model)$adj.r.squared
 
 ```
 
-boxcox_model has adjusted R-squared of `r adj_r2_model1` compared to `r adj_r2_model2` of full_boxcox_model, which makes model with additional transformations of independent variables redundant, as it both more complex and less accurate. Let's move to implementing assumed interaction terms
+boxcox_model has adjusted R-squared of `r adj_r2_model1` compared to `r adj_r2_model2` of full_boxcox_model, which makes model with additional transformations of independent variables redundant, as it both more complex and less accurate. Let's move to implementing assumed interaction terms.
 
 ```{r}
 
@@ -488,10 +487,57 @@ anova(boxcox_model,
       boxcox_model_with_implied_interactions)
 ```
 
-Interestingly the performa
+Interestingly the performance of three model does not differs that much. Therefore it was decided to take a look at Anova Type II tests to figure out significant interactions
 
 ```{r}
-summary(boxcox_model_with2way_interactions)
+Anova(boxcox_model_with2way_interactions)
+```
+
+```{r}
+boxcox_selected <- lm(boxcox_benefits ~ age + hsize + gender + citizenship + age:hsize + hsize:gender, data = west_austria)
+summary(boxcox_selected)
+```
+
+```{r}
+anova(boxcox_model_with2way_interactions,boxcox_selected)
+```
+
+The high p-value indicates no significant difference between the two models, therefore the simpler model (`boxcox_selected`) is preferable because it achieves a similar fit with fewer parameters, making it more interpretable. Let's check selection of the model based on the AIC
+
+```{r}
+model_both <- stepAIC(boxcox_model_with2way_interactions, direction = "both", trace = F)
+model_forward <- stepAIC(boxcox_model_with2way_interactions, direction = "forward", trace = F)
+model_backward <- stepAIC(boxcox_model_with2way_interactions, direction = "backward", trace = F)
+anova(model_both, model_backward, model_forward)
+```
+
+Interestingly we obtain the same model, which we decided to pick without stepAIC procedure, which is `boxcox_selected`
+
+```{r}
+qqnorm(residuals(boxcox_selected))
+qqline(residuals(boxcox_selected))
+```
+
+Unfortunately, residuals are still not normally distributed.
+
+```{r}
+residuals <- residuals(boxcox_selected, type = "pearson")
+high_residuals <- which(abs(residuals) >0.2)
+west_austria_high_residuals <- west_austria[high_residuals, ]
+
+
+ggplot(west_austria_high_residuals, aes(x = benefits)) +
+  geom_histogram(bins = 25, fill = "blue", color = "black") +
+  scale_y_continuous(breaks = breaks_pretty(n = 8)) +
+  scale_x_continuous(breaks = breaks_pretty(n = 10)) +
+  labs(x = "Unemployment Benefits (in € per year)", y = "Frequency")
+
+
+identical(west_austria_filtered$benefits,
+          west_austria_high_residuals$benefits)
+```
+
+```{r}
 ```
 
 # Conclusion and criticism
