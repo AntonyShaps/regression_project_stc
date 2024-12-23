@@ -473,10 +473,25 @@ adj_r2_model2 <- summary(full_boxcox_model)$adj.r.squared
 
 ```
 
-boxcox_model has adjusted R-squared of `r adj_r2_model1` compared to `r adj_r2_model2` of full_boxcox_model, which makes model with additional transformations of independent variables redundant, as it both more complex and less accurate.
+boxcox_model has adjusted R-squared of `r adj_r2_model1` compared to `r adj_r2_model2` of full_boxcox_model, which makes model with additional transformations of independent variables redundant, as it both more complex and less accurate. Let's move to implementing assumed interaction terms
 
 ```{r}
 
+boxcox_model_with2way_interactions <- lm(boxcox_benefits ~ (age + hsize + gender + citizenship)^2, data = west_austria)
+
+
+boxcox_model_with_implied_interactions <- lm(boxcox_benefits ~ age + gender + citizenship + hsize + age:gender+ age:citizenship+ gender:citizenship, data = west_austria)
+
+
+anova(boxcox_model,
+      boxcox_model_with2way_interactions,
+      boxcox_model_with_implied_interactions)
+```
+
+Interestingly the performa
+
+```{r}
+summary(boxcox_model_with2way_interactions)
 ```
 
 # Conclusion and criticism
