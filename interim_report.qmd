@@ -6,7 +6,7 @@ number-sections: true
 df-print: kable
 fig-align: center
 execute:
-  echo: false
+  echo: true
 format:
   pdf:
     toc: true
@@ -20,6 +20,10 @@ library(forcats)
 library(patchwork)
 library(scales)
 library(effects)
+library(MASS)
+library(stats)
+library(car)
+library(gridExtra)
 data(eusilcP)
 
 # modify default theme
@@ -60,7 +64,7 @@ A detailed analysis of the data and the cleaning steps undertaken are outlined i
 west_austria <- eusilcP %>% 
   filter(region %in% c("Vorarlberg", "Tyrol", "Salzburg", "Upper Austria"))
 
-west_austria <- west_austria %>% select(gender, citizenship, hsize, age, py090n)
+west_austria <- west_austria %>% dplyr::select(gender, citizenship, hsize, age, py090n)
 
 # Transform hsize to integer
 west_austria$hsize <- as.integer(as.character(west_austria$hsize))
@@ -377,7 +381,7 @@ ggplot(west_austria_filtered, aes(x = citizenship, y = benefits, fill = gender))
   scale_y_continuous(breaks = breaks_pretty(n = 15)) +
   labs(title = "Unemployment benefits by Citizenship",
        x = "Citizenship",
-       y = "Unemployment benefits",
+       y = "Unemployment benefits (€ per year)",
        fill = "Gender")
 ```
 
@@ -413,7 +417,7 @@ qqnorm(residuals(simple_model))
 qqline(residuals(simple_model))
 ```
 
-As it was implied the residuals are non-normally distributed especially at a higher end of distribution, which may signal for log transforming the target variable
+As it was implied the residuals are rather big and non-normally distributed especially at a higher end of distribution, which may signal for log transforming the target variable.
 
 ```{r}
 log_model <- lm(log1p(benefits) ~ age + hsize + gender + citizenship, data = west_austria)
@@ -421,7 +425,59 @@ qqnorm(residuals(log_model))
 qqline(residuals(log_model))
 ```
 
-Still not normally distributed residuals
+Still not normally distributed residuals and non linearity in residuals. Let's try boxcox transform for more fitting transformation.
+
+```{r}
+bc_benefits <- boxcox((benefits+1)~1, data = west_austria, plotit = FALSE)
+lambda_benefits <- bc_benefits$x[which.max(bc_benefits$y)]
+west_austria$boxcox_benefits <- ((west_austria$benefits +1) ^ lambda_benefits - 1) / lambda_benefits
+
+boxcox_model <- lm(boxcox_benefits ~ age + hsize + gender + citizenship, data = west_austria)
+qqnorm(residuals(boxcox_model))
+qqline(residuals(boxcox_model))
+```
+
+We still observe large residuals in a higher end but less non-linearity in residuals. Let's compare studentized residuals of models to have better understanding of deviation.
+
+```{r, fig.width=8, fig.height= 8}
+# Set up the plotting area to have 3 rows and 1 column
+par(mfrow = c(3, 1))
+
+# Generate the QQ plots
+qqPlot(rstudent(boxcox_model), main = "Box-Cox Model")
+qqPlot(rstudent(log_model), main = "Log Model")
+qqPlot(rstudent(simple_model), main = "Simple Model")
+
+# Reset the plotting area to default (1 plot per page)
+par(mfrow = c(1, 1))
+
+```
+
+Based on plot above, we can conclude that boxcox provides lower residuals. We can now proceed to incorporate other assumptions. We can try boxcox transform for age and hsize and check if it improves the model fit.
+
+```{r}
+
+bc_age <- boxcox(age ~1, data = west_austria, plotit = FALSE)
+lambda_age <- bc_age$x[which.max(bc_age$y)]
+west_austria$boxcox_age <- (west_austria$age ^ lambda_age - 1) / lambda_age
+
+bc_hsize <- boxcox(hsize~1, data = west_austria, plotit = FALSE)
+lambda_hsize <- bc_hsize$x[which.max(bc_hsize$y)]
+west_austria$boxcox_hsize <- (west_austria$hsize ^ lambda_hsize - 1) / lambda_hsize
+
+full_boxcox_model <- lm(boxcox_benefits ~ boxcox_age + boxcox_hsize + gender + citizenship, data = west_austria)
+
+
+adj_r2_model1 <- summary(boxcox_model)$adj.r.squared
+adj_r2_model2 <- summary(full_boxcox_model)$adj.r.squared
+
+```
+
+boxcox_model has adjusted R-squared of `r adj_r2_model1` compared to `r adj_r2_model2` of full_boxcox_model, which makes model with additional transformations of independent variables redundant, as it both more complex and less accurate.
+
+```{r}
+
+```
 
 # Conclusion and criticism
 
@@ -429,6 +485,6 @@ Still not normally distributed residuals
 
 ## Possible problems
 
-## Generalizability of the findings 
+## Generalizability of the findings
 
 ## Possible further questions
