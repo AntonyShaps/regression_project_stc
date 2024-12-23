@@ -429,6 +429,6 @@ Still not normally distributed residuals
 
 ## Possible problems
 
-## Generalizability of the findings 
+## Generalizability of the findings
 
 ## Possible further questions
